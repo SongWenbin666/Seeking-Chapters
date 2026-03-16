@@ -1,0 +1,27 @@
+# 环境：Python 3.10+
+# 配置
+python-dotenv>=1.0.0
+
+# 爬虫与解析
+requests>=2.28.0
+beautifulsoup4>=4.12.0
+ebooklib>=0.18.0
+
+# RAG
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+langchain-text-splitters>=0.0.1
+langchain-openai>=0.0.5
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+tiktoken>=0.5.0
+
+# LLM
+openai>=1.0.0
+
+# 可视化
+streamlit>=1.28.0
+
+# 工具
+tqdm>=4.65.0

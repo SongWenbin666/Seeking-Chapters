@@ -1,0 +1,16 @@
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 配置与本地数据
+.env
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
