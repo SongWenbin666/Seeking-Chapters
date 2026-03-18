@@ -10,9 +10,13 @@ import streamlit as st
 from config import ensure_dirs, VECTOR_STORE_DIR, CHUNK_SIZE, CHUNK_OVERLAP, TOP_K
 from crawler import list_novels, load_novel
 from rag import index_novel, answer_question
+from agent.chat_agent import run_agent_chat_turn
 
 st.set_page_config(page_title="小说 RAG 问答", page_icon="📖", layout="wide")
 ensure_dirs()
+
+if "agent_messages" not in st.session_state:
+    st.session_state.agent_messages = []
 
 
 def has_index(novel_id: str) -> bool:
@@ -21,7 +25,9 @@ def has_index(novel_id: str) -> bool:
 
 def main():
     st.title("📖 长篇小说 RAG 问答")
-    st.caption("选择已导入的小说，建索引后可对书中内容提问，答案仅基于检索片段。")
+    st.caption(
+        "选书后可使用 **Agent 聊天**（闲聊 + 按需调用本书 RAG）或 **本书问答**（每问必走 RAG）。"
+    )
 
     novels = list_novels()
     if not novels:
@@ -55,8 +61,10 @@ def main():
                     except Exception as e:
                         st.error(str(e))
 
-    # 主区：章节列表（可折叠）+ 问答
-    tab_browse, tab_qa = st.tabs(["📑 章节列表", "💬 问答"])
+    # 主区：章节列表 + Agent 聊天 + 强制 RAG 问答
+    tab_browse, tab_agent, tab_qa = st.tabs(
+        ["📑 章节列表", "🤖 Agent 聊天", "📌 本书问答（强制 RAG）"]
+    )
 
     with tab_browse:
         if novel:
@@ -66,6 +74,44 @@ def main():
                     st.text(ch.content[:800] + ("…" if len(ch.content) > 800 else ""))
             if len(novel.chapters) > 50:
                 st.caption(f"仅展示前 50 章，共 {len(novel.chapters)} 章")
+
+    with tab_agent:
+        st.markdown(
+            "通用对话；**与本书情节/人物/章节相关**时会自动调用 `novel_rag_query`（工具内检索+生成短答，模式 A）。"
+            " 未建索引时仍可闲聊，查书时工具会提示先建索引。"
+        )
+        if st.button("清空 Agent 对话记录"):
+            st.session_state.agent_messages = []
+            st.rerun()
+        for m in st.session_state.agent_messages:
+            with st.chat_message(m["role"]):
+                st.markdown(m["content"])
+        agent_input = st.chat_input("输入消息…（可闲聊，也可问本书内容）")
+        if agent_input:
+            hist = [
+                (x["role"], x["content"])
+                for x in st.session_state.agent_messages
+            ]
+            with st.spinner("思考中…"):
+                try:
+                    reply = run_agent_chat_turn(
+                        novel_id=novel_id,
+                        indexed=indexed,
+                        chat_history=hist,
+                        user_input=agent_input,
+                        top_k=TOP_K,
+                        book_title=novel.title if novel else "",
+                        book_author=novel.author if novel else "",
+                    )
+                except Exception as e:
+                    reply = f"Agent 执行出错：{e}"
+            st.session_state.agent_messages.append(
+                {"role": "user", "content": agent_input}
+            )
+            st.session_state.agent_messages.append(
+                {"role": "assistant", "content": reply}
+            )
+            st.rerun()
 
     with tab_qa:
         if not indexed:

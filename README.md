@@ -103,7 +103,8 @@ streamlit run app.py
 - 查看已导入小说列表与元信息（书名、作者、章节数、总字数）
 - 浏览章节列表（可折叠）
 - 为未建索引的书「建索引」
-- 在问答页输入问题，查看答案与可折叠的引用片段
+- **Agent 聊天**：通用对话；与本书相关时由大模型**按需调用**工具 `novel_rag_query`（工具内检索 + LLM 短答，模式 A）；未建索引时仍可闲聊，查书会提示先建索引
+- **本书问答（强制 RAG）**：每问必走检索 + 生成，并展示引用片段与耗时
 
 ## 示例问题
 
@@ -121,6 +122,7 @@ Seeking Chapters/
 ├── .env.example
 ├── requirements.txt
 ├── app.py              # Streamlit 入口
+├── agent/              # Agent 聊天（工具调用 novel_rag_query）
 ├── crawler/            # 爬虫与存储
 │   ├── models.py       # Novel, Chapter
 │   ├── storage.py      # JSON 落盘、列表
