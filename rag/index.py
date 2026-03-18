@@ -2,6 +2,7 @@
 """向量索引：按书建 Chroma 集合，支持增量。"""
 from pathlib import Path
 from typing import List, Optional
+from functools import lru_cache
 
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
@@ -58,16 +59,22 @@ def build_index(
 
 def get_retriever(novel_id: str, top_k: int = None):
     """获取该小说的检索器（用于 RAG）。"""
+    vs = _get_vectorstore(novel_id)
+    return vs.as_retriever(search_kwargs={"k": top_k or TOP_K})
+
+
+@lru_cache(maxsize=8)
+def _get_vectorstore(novel_id: str) -> Chroma:
+    """缓存每本书的向量库句柄，避免每次提问重复打开与初始化。"""
     path = _collection_path(novel_id)
     if not path.exists():
         raise FileNotFoundError(f"未找到小说索引，请先建索引: {novel_id}")
     embeddings = get_embedding_model()
-    vs = Chroma(
+    return Chroma(
         persist_directory=str(path),
         embedding_function=embeddings,
         collection_name="novel",
     )
-    return vs.as_retriever(search_kwargs={"k": top_k or TOP_K})
 
 
 def index_novel(novel_id: str, force_rebuild: bool = False) -> int:

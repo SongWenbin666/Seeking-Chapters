@@ -78,6 +78,12 @@ def main():
                 with st.spinner("检索并生成答案中…"):
                     try:
                         result = answer_question(novel_id, question, top_k=TOP_K)
+                        timings = result.get("timings") or {}
+                        if timings:
+                            c1, c2, c3 = st.columns(3)
+                            c1.metric("检索耗时 (s)", timings.get("retrieval_s", "—"))
+                            c2.metric("生成耗时 (s)", timings.get("generation_s", "—"))
+                            c3.metric("总耗时 (s)", timings.get("total_s", "—"))
                         st.markdown("### 答案")
                         st.markdown(result["answer"])
                         st.markdown("---")

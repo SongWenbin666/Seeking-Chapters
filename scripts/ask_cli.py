@@ -20,6 +20,13 @@ def main():
     question = " ".join(args.question)
     result = answer_question(args.novel_id, question, top_k=args.top_k)
 
+    timings = result.get("timings") or {}
+    if timings:
+        print("【耗时】")
+        print(f"  检索: {timings.get('retrieval_s', '—')} s")
+        print(f"  生成: {timings.get('generation_s', '—')} s")
+        print(f"  总计: {timings.get('total_s', '—')} s\n")
+
     print("【答案】")
     print(result["answer"])
     print("\n【引用片段】")

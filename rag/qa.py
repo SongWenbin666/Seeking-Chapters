@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """检索 + LLM 生成，答案仅基于检索片段，并带引用。"""
 from typing import List, Optional
+import time
+import re
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -34,6 +36,24 @@ def _format_docs(docs):
     return "\n\n".join(parts)
 
 
+_ACT_SCENE_RE = re.compile(r"(第[一二三四五六七八九十0-9]+幕)(第[一二三四五六七八九十0-9]+场)?")
+
+
+def _filter_docs_by_act_scene(question: str, docs: list):
+    """
+    简单规则：如果问题里明确提到“第X幕/第X场”，则优先保留章节标题里包含该幕的片段。
+    若过滤后为空，则回退原 docs。
+    """
+    m = _ACT_SCENE_RE.search(question)
+    if not m:
+        return docs
+    act = m.group(1)
+    if not act:
+        return docs
+    filtered = [d for d in docs if act in (d.metadata.get("chapter_title") or "")]
+    return filtered or docs
+
+
 def get_llm():
     """根据配置返回 LLM（key 等均从环境变量/config 导入）。"""
     if LLM_PROVIDER == "ollama":
@@ -65,9 +85,15 @@ def answer_question(
     对指定小说提问：检索 Top-K 片段，用 LLM 生成答案。
     返回 {"answer": str, "citations": [{"chapter_title", "chapter_index", "content"}, ...]}
     """
+    t0 = time.perf_counter()
+
     from .index import get_retriever
     retriever = get_retriever(novel_id, top_k=top_k)
+
+    t_retrieval_start = time.perf_counter()
     docs = retriever.invoke(question)
+    t_retrieval_end = time.perf_counter()
+    docs = _filter_docs_by_act_scene(question, docs)
 
     context = _format_docs(docs)
     prompt = ChatPromptTemplate.from_messages([
@@ -76,7 +102,9 @@ def answer_question(
     ])
     llm = get_llm()
     chain = prompt | llm | StrOutputParser()
+    t_generation_start = time.perf_counter()
     answer = chain.invoke({"context": context, "question": question})
+    t_generation_end = time.perf_counter()
 
     citations = [
         {
@@ -87,4 +115,11 @@ def answer_question(
         for d in docs
     ]
 
-    return {"answer": answer, "citations": citations}
+    t1 = time.perf_counter()
+    timings = {
+        "retrieval_s": round(t_retrieval_end - t_retrieval_start, 4),
+        "generation_s": round(t_generation_end - t_generation_start, 4),
+        "total_s": round(t1 - t0, 4),
+    }
+
+    return {"answer": answer, "citations": citations, "timings": timings}

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Embedding 封装：本地 sentence-transformers 或 OpenAI。"""
 from typing import List
+from functools import lru_cache
 
 from config import (
     EMBEDDING_TYPE,
@@ -11,6 +12,7 @@ from config import (
 )
 
 
+@lru_cache(maxsize=1)
 def get_embedding_model():
     """返回 LangChain 可用的 Embeddings 实例。"""
     if EMBEDDING_TYPE == "openai":
